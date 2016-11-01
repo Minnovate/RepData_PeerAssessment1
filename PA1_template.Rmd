@@ -1,4 +1,4 @@
----
+get---
 title: "Reproducible Research: Peer Assessment 1"
 output: 
   html_document:
@@ -7,19 +7,95 @@ output:
 
 
 ## Loading and preprocessing the data
-
-
-
+```{r loadingdata}
+#Set the Working directory to the right location
+defaultWD <- "//Users/gamelord/Documents/OneDrive/Coursera.org/5. Reproducible research/RepData_PeerAssessment1"
+setwd(defaultWD)
+unzip("./activity.zip", files = NULL, list = FALSE, overwrite = TRUE,
+      junkpaths = FALSE, exdir = "./", unzip = "internal",
+      setTimes = FALSE)
+#data without N.A
+activity <- na.omit(read.csv(file="./activity.csv",header=TRUE))
+```
 ## What is mean total number of steps taken per day?
-
-
-
+```{r mean}
+#Total number of steps taken per day
+meanstep <- aggregate(activity$steps~activity$date,FUN=sum)
+names(meanstep) <- c("date","steps")
+#Histogram of total number of steps taken each day
+hist(meanstep[,2], main="Histogram of the total number of steps taken each day",xlab="Total steps each day")
+abline(v=median(meanstep[,2]),col="red",lwd=1)
+abline(v=mean(meanstep[,2]),col="blue",lwd=1)
+#Mean of the total number of steps taken per day
+mean(meanstep[,2])
+#Median of the total number of steps taken per day
+median(meanstep[,2])
+```
 ## What is the average daily activity pattern?
-
-
-
+```{r timeseries}
+avgstep <- aggregate(activity$steps~activity$interval,FUN=mean)
+names(avgstep) <- c("interval","steps")
+plot.ts(avgstep$steps,ylab="Average steps",main="Time series plot of 5-minute interval")
+#Which is the maximum number of steps
+avgstep[which.max(avgstep$steps),]
+```
 ## Imputing missing values
-
-
-
+```{r missingvalues}
+#Full dataset
+full <- read.csv(file="./activity.csv",header=TRUE)
+summary(full$steps)
+# There're 2,304 missing value in the dataset
+# I would like to fill the NA with average value of corresponding interval
+navalue <- full[which(is.na(full[,1])==TRUE),]
+imputena <- merge(navalue,avgstep,by="interval")
+imputena<-imputena[,-2]
+names(imputena)<-c("internal","date","steps")
+#Rearrange columns
+imputena <- imputena[,c(3,2,1)]
+#Round number the steps
+imputena$steps<-round(imputena$steps)
+#Convert num to int
+imputena$steps <- as.integer(imputena$steps)
+#Add back to non-NA dataset
+names(imputena)<-names(activity)
+filled <- rbind(activity,imputena)
+#Total number of steps each day with filled data
+totalsteps <- aggregate(filled$steps~filled$date,FUN=sum)
+hist(totalsteps[,2], main="Histogram of the total number of steps taken each day",xlab="Total steps each day")
+abline(v=median(totalsteps[,2]),col="red",lwd=1)
+abline(v=mean(totalsteps[,2]),col="blue",lwd=1)
+#The new mean 
+mean(totalsteps[,2])
+#The new median
+median(totalsteps[,2])
+#The new mean and median changed a little bit.The imputing missing data don't change the mean and median much
+```
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r weekday}
+#Transform date to proper date format
+activity$date <- as.POSIXct(activity$date)
+activity$weekdays <- weekdays(activity$date)
+activity$weekend<-ifelse(activity$weekdays %in% c("Saturday","Sunday"),"Weekend","Weekday")
+activity$id <- paste(activity$interval,activity$weekend)
+#Average of steps each day by interval
+avgweekday<- aggregate(activity$steps~activity$id,FUN=mean)
+names(avgweekday)<-c("id","steps")
+#Transform navalue dataset to impute missing steps count
+navalue$date <- as.POSIXct(navalue$date)
+navalue$weekdays <- weekdays(navalue$date)
+navalue$weekend<-ifelse(navalue$weekdays %in%
+c("Saturday","Sunday"),"Weekend","Weekday")
+navalue$id <- paste(navalue$interval,navalue$weekend)
+imputed<-merge(navalue,avgweekday,by="id")
+imputed<-imputed[,-2]
+imputed<-imputed[,c(6,2,3,4,5,1)]
+imputed[,1]<-round(imputed[,1])
+names(imputed)<-names(activity)
+totalwd <- rbind(activity,imputed)
+avgwd <- aggregate(totalwd$steps~totalwd$interval+totalwd$weekend,FUN=mean)
+names(avgwd)<-c("Interval","Weekend","Steps")
+#It took a while to see the Base plotting and GGplot can't produce exact look required. But Lattice system does it easily
+library(lattice)
+xyplot(Steps~Interval|Weekend,data=avgwd,type="l",layout=c(1,2),ylab="Number of steps")
+dev.off()
+```
