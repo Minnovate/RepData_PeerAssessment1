@@ -4,7 +4,11 @@ output:
   html_document:
     keep_md: true
 ---
-
+##### Set global options to save plots
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=6, fig.height=4, fig.path='figures/',
+                      echo=TRUE, warning=FALSE, message=FALSE)
+```
 
 ## Loading and preprocessing the data
 ```{r loadingdata}
@@ -18,35 +22,43 @@ unzip("./activity.zip", files = NULL, list = FALSE, overwrite = TRUE,
 activity <- na.omit(read.csv(file="./activity.csv",header=TRUE))
 ```
 ## What is mean total number of steps taken per day?
-```{r mean}
+```{r hist}
 #Total number of steps taken per day
 meanstep <- aggregate(activity$steps~activity$date,FUN=sum)
 names(meanstep) <- c("date","steps")
+mean1<-round(mean(meanstep[,2]))
+median1<-median(meanstep[,2])
 #Histogram of total number of steps taken each day
 hist(meanstep[,2], main="Histogram of the total number of steps taken each day",xlab="Total steps each day")
 abline(v=median(meanstep[,2]),col="red",lwd=1)
 abline(v=mean(meanstep[,2]),col="blue",lwd=1)
-#Mean of the total number of steps taken per day
-mean(meanstep[,2])
-#Median of the total number of steps taken per day
-median(meanstep[,2])
-```
+```  
+  
+#####  Mean of the total number of steps taken per day `r mean1`  
+#####  Median of the total number of steps taken per day `r median1`  
+
 ## What is the average daily activity pattern?
 ```{r timeseries}
 avgstep <- aggregate(activity$steps~activity$interval,FUN=mean)
 names(avgstep) <- c("interval","steps")
+max1 <- avgstep[which.max(avgstep$steps),]
 plot.ts(avgstep$steps,ylab="Average steps",main="Time series plot of 5-minute interval")
-#Which is the maximum number of steps
-avgstep[which.max(avgstep$steps),]
 ```
+  
+##### Which INTERVAL has the maximum number of steps on average `r max1[,1]`
+
 ## Imputing missing values
-```{r missingvalues}
+```{r}
 #Full dataset
 full <- read.csv(file="./activity.csv",header=TRUE)
 summary(full$steps)
-# There're 2,304 missing value in the dataset
-# I would like to fill the NA with average value of corresponding interval
 navalue <- full[which(is.na(full[,1])==TRUE),]
+missingvalue <- nrow(navalue)
+```
+   
+##### There're `r missingvalue` missing value(s) in the dataset
+### Imputation medthod: I would like to fill the NA with average value of corresponding interval across the dataset
+```{r imputation}
 imputena <- merge(navalue,avgstep,by="interval")
 imputena<-imputena[,-2]
 names(imputena)<-c("internal","date","steps")
@@ -61,17 +73,19 @@ names(imputena)<-names(activity)
 filled <- rbind(activity,imputena)
 #Total number of steps each day with filled data
 totalsteps <- aggregate(filled$steps~filled$date,FUN=sum)
-hist(totalsteps[,2], main="Histogram of the total number of steps taken each day",xlab="Total steps each day")
+hist(totalsteps[,2], main="Histogram of total steps with imputation data",xlab="Total steps each day")
 abline(v=median(totalsteps[,2]),col="red",lwd=1)
 abline(v=mean(totalsteps[,2]),col="blue",lwd=1)
-#The new mean 
-mean(totalsteps[,2])
-#The new median
-median(totalsteps[,2])
-#The new mean and median changed a little bit.The imputing missing data don't change the mean and median much
+mean2 <- mean(totalsteps[,2])
+median2 <- median(totalsteps[,2])
 ```
+   
+##### The new mean is `r mean2`  
+##### The new median is `r median2`    
+#### The new mean and median changed a little bit.The imputing missing data don't change the mean and median much
+
 ## Are there differences in activity patterns between weekdays and weekends?
-```{r weekday}
+```{r imputeWeekday}
 #Transform date to proper date format
 activity$date <- as.POSIXct(activity$date)
 activity$weekdays <- weekdays(activity$date)
@@ -95,7 +109,11 @@ totalwd <- rbind(activity,imputed)
 avgwd <- aggregate(totalwd$steps~totalwd$interval+totalwd$weekend,FUN=mean)
 names(avgwd)<-c("Interval","Weekend","Steps")
 #It took a while to see the Base plotting and GGplot can't produce exact look required. But Lattice system does it easily
-library(lattice)
-xyplot(Steps~Interval|Weekend,data=avgwd,type="l",layout=c(1,2),ylab="Number of steps")
-dev.off()
 ```
+```{r weekend}
+library(lattice)
+xyplot(Steps~Interval|Weekend,data=avgwd,type="l",layout=c(1,2),ylab="Number of steps",main="Steps between Weekend vs Weekdays")
+```
+   
+### Weekdays seem to have a higher jumpstart but remain pretty lower compare to weekend. The number of steps in weekend seems to represent a higher physical activity during the day
+
